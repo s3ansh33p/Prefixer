@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>‎</title>
+    <style>
+     #toggle {
+        background-color: #1e1e1e;
+        color: #ffffff;
+        padding: 0.5rem;
+        border: none;
+        border-radius: 5px;
+        width: 100px;
+        font-weight: bold;
+        margin-top: 0.5rem;
+        position: absolute;
+        bottom: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+      }
+
+      #toggle:hover {
+          cursor: pointer;
+      }
+
+      * {
+        box-sizing: border-box;
+        padding: 0;
+        margin: 0;
+      }
+
+      textarea {
+        color: #ffffff;
+        height: 60px;
+        padding: 0.5rem;
+        width: clamp(250px, 100vw, 840px);
+        background-color: #151516;
+      }
+    </style>
+</head>
+<body style="background-color: #151516;">
+    <!-- Toggle Button -->
+    <button onclick="toggle()" id="toggle">Hide</button>
+    <!-- Options -->
+    <textarea id="prefix" placeholder="Apply Custom Prefix"></textarea>
+    <script>
+        let previous = 'a';
+        let prefix = '';
+        let toggled = false;
+
+        // function to listen to toggle button
+        function toggle() {
+            toggled = !toggled;
+            if (toggled) {
+                // hide prefixer
+                document.getElementById('prefix').style.display = 'none';
+                // change toggle text
+                document.getElementById('toggle').innerHTML = 'Show';
+                // change toggle colour
+                document.getElementById('toggle').style.backgroundColor = '#1e1e1e';
+            } else {
+                // show prefixer
+                document.getElementById('prefix').style.display = 'block';
+                // change toggle text
+                document.getElementById('toggle').innerHTML = 'Hide';
+                // change toggle colour
+                document.getElementById('toggle').style.backgroundColor = '#1e1e1e';
+            }
+        }
+
+        // read prefix from local storage
+        // one page is ready
+        window.addEventListener('load', function() {
+            if (localStorage.getItem('prefix') !== null) {
+                prefix = localStorage.getItem('prefix');
+                document.getElementById('prefix').value = prefix;
+            }
+        })
+                                    
+        // function to listen to changes in the textarea
+        document.getElementById('prefix').addEventListener('change', async function() {
+            prefix = document.getElementById('prefix').value;
+            // save to local storage
+            localStorage.setItem('prefix', prefix);
+            previous = '';
+            // call fn again
+            await readClipboard();
+        });            
+
+        // function to copy data to clipboard without document in focus
+        function copyToClipboard(text) {
+            var dummy = document.createElement("textarea");
+            document.body.appendChild(dummy);
+            dummy.value = text;
+            dummy.select();
+            document.execCommand("copy");
+            document.body.removeChild(dummy);
+        }
+        // function to remove certain prefixes
+        // dd-mmm-yyyy hh:mm:ss - KEEP TEXT AFTER
+        // dd mmm - hh:mm:ss - KEEP TEXT AFTER
+        function removePrefixes(text) {
+            // dd can be any day value between 00 and 31 etc
+            // mmm can be any month value between 01 and 12
+            // yyyy can be any year value between 1900 and 2100
+            // hh can be any hour value between 00 and 23
+            // mm can be any minute value between 00 and 59
+            // ss can be any second value between 00 and 59
+            // FIRST CASE: dd-mmm-yyyy hh:mm:ss - KEEP TEXT AFTER
+            var regex1 = /\d{2}-\w{3}-\d{4} \d{2}:\d{2}:\d{2}/;
+            // SECOND CASE: dd mmm - hh:mm:ss - KEEP TEXT AFTER
+            var regex2 = /\d{2} \w{3} - \d{2}:\d{2}:\d{2}/;
+            // remove prefixes
+            var newText = text.replace(regex1, "");
+            newText = newText.replace(regex2, "");
+            // trim text
+            newText = newText.trim();
+            // check for dash at start
+            if (newText.charAt(0) === "-") newText = newText.substring(1);
+            // final trim
+            newText = newText.trim();
+            // return new text
+            console.log("RETURN: " + newText);
+            return newText;
+        }
+
+        // function to read the clipboard without document in focus
+        async function readClipboard() {
+            // get clipboard data
+            var clipboardData = await navigator.clipboard.readText();
+            // check if clipboard data is different from previous
+            if (clipboardData == previous) return;
+            // console.log(JSON.stringify(previous));
+
+            // remove all \r
+            clipboardData = clipboardData.replace(/\r/g, "");
+            console.log(JSON.stringify(clipboardData));
+            // split new lines
+            let lines = clipboardData.split("\n");
+            console.log(lines)
+
+
+            // check if final line is empty
+            if (lines[lines.length - 1] === "") {
+                // remove last line
+                lines.pop();
+            }
+            // loop
+            for (var i = 0; i < lines.length; i++) {
+                console.log("ln: " + i + " | " + lines[i]);
+                // check if line is "Most Recent" | "Only Important"
+                if (lines[i].toUpperCase() == "MOST RECENT" || lines[i].toUpperCase() == "ONLY IMPORTANT") {
+                    // remove line
+                    lines.splice(i, 1);
+                    i--;
+                } else {
+                    // remove prefixes
+                    lines[i] = removePrefixes(lines[i]);
+                    // add prefix
+                    lines[i] = prefix + lines[i];
+                }
+            }
+            // join lines
+            var newText = lines.join("\n");
+
+            // copy to clipboard
+            copyToClipboard(newText);
+            console.log("Result: " + newText);
+            previous = newText;
+        }
+
+        let wantLoop = true;
+
+        // listener for document coming into focus
+        window.addEventListener('focus', function() {
+            wantLoop = true;
+        });
+
+        // listener for document leaving focus
+        window.addEventListener('blur', function() {
+            wantLoop = true;
+        });
+
+        // check page focus every 200 ms
+        let focusFn = setInterval(async function() {
+            // check if document is in focus
+            if (document.hasFocus() && wantLoop) {
+                // read clipboard
+                await readClipboard();
+                wantLoop = false;
+            }
+        }, 200);
+    </script>
+</body>
+</html>
